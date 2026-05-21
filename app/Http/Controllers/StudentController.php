@@ -3,28 +3,24 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Models\Student;
 use App\Models\Scholarship;
 use App\Models\Institution;
 use App\Models\Verification;
+use App\Models\ScholarshipScheme;
+use App\Models\SchemeTier;
 
 class StudentController extends Controller {
-    private array $scholarshipAmounts = [
-        'Merit' => 25000,
-        'Sports' => 18000,
-        'Minority' => 22000,
-        'Disability' => 30000,
-        'OBC' => 20000,
-        'SC/ST' => 28000,
-    ];
-
     public function dashboard() {
         $user = Auth::user();
         $student = $user->student;
         $scholarships = $student
             ? Scholarship::where('student_id', $student->id)
-                ->with('verification.institution')
+                ->with('verification.institution', 'tier.scheme')
                 ->latest()
                 ->get()
             : collect();
@@ -78,36 +74,79 @@ class StudentController extends Controller {
     public function applyForm() {
         $student = Auth::user()->student;
         if (!$student) return redirect()->route('student.profile')->with('error', 'Please complete your profile first.');
-        return view('student.apply', [
-            'student' => $student,
-            'scholarshipAmounts' => $this->scholarshipAmounts,
-        ]);
+
+        $schemes = ScholarshipScheme::where('institution_id', $student->institution_id)
+            ->where('is_active', true)
+            ->with(['tiers' => fn ($query) => $query->whereDate('deadline', '>=', today())->orderBy('amount')])
+            ->orderBy('scheme_name')
+            ->get();
+
+        return view('student.apply', compact('student', 'schemes'));
     }
 
     public function applySubmit(Request $request) {
-        $request->validate([
-            'scholarship_name' => ['required', Rule::in(array_keys($this->scholarshipAmounts))],
-            'supporting_document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
-        ]);
-
         $student = Auth::user()->student;
         if (!$student) return redirect()->route('student.profile')->with('error', 'Please complete your profile first.');
 
+        $validated = $request->validate([
+            'scheme_id' => [
+                'required',
+                Rule::exists('scholarship_schemes', 'id')
+                    ->where('institution_id', $student->institution_id)
+                    ->where('is_active', true),
+            ],
+            'tier_id' => [
+                'required',
+                Rule::exists('scheme_tiers', 'id')->where('scheme_id', $request->scheme_id),
+            ],
+            'supporting_document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
+        ]);
+
         $documentPath = $request->file('supporting_document')->store('documents', 'public');
 
-        $scholarship = Scholarship::create([
-            'student_id' => $student->id,
-            'scholarship_name' => $request->scholarship_name,
-            'amount' => $this->scholarshipAmounts[$request->scholarship_name],
-            'status' => 'pending',
-            'document_path' => $documentPath,
-        ]);
+        try {
+            DB::transaction(function () use ($validated, $student, $documentPath) {
+                $scheme = ScholarshipScheme::where('institution_id', $student->institution_id)
+                    ->where('is_active', true)
+                    ->findOrFail($validated['scheme_id']);
 
-        Verification::create([
-            'scholarship_id' => $scholarship->id,
-            'institution_id' => $student->institution_id,
-            'status' => 'pending',
-        ]);
+                $tier = SchemeTier::where('scheme_id', $scheme->id)
+                    ->lockForUpdate()
+                    ->findOrFail($validated['tier_id']);
+
+                if ($tier->deadline->lt(today())) {
+                    throw ValidationException::withMessages([
+                        'tier_id' => 'The selected tier deadline has passed.',
+                    ]);
+                }
+
+                if (!$tier->hasSeatsAvailable()) {
+                    throw ValidationException::withMessages([
+                        'tier_id' => 'No seats are available for the selected tier.',
+                    ]);
+                }
+
+                $scholarship = Scholarship::create([
+                    'student_id' => $student->id,
+                    'tier_id' => $tier->id,
+                    'scholarship_name' => $scheme->scheme_name,
+                    'amount' => $tier->amount,
+                    'status' => 'pending',
+                    'document_path' => $documentPath,
+                ]);
+
+                $tier->increment('filled_seats');
+
+                Verification::create([
+                    'scholarship_id' => $scholarship->id,
+                    'institution_id' => $student->institution_id,
+                    'status' => 'pending',
+                ]);
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($documentPath);
+            throw $exception;
+        }
 
         return redirect()->route('student.dashboard')->with('success', 'Scholarship application submitted!');
     }

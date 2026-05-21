@@ -4,67 +4,99 @@ namespace Database\Seeders;
 
 use App\Models\Institution;
 use App\Models\Scholarship;
+use App\Models\ScholarshipScheme;
+use App\Models\SchemeTier;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Verification;
-use Faker\Factory as Faker;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $faker = Faker::create('en_IN');
+        $this->resetPortalTables();
 
         User::updateOrCreate(
             ['email' => 'admin@portal.com'],
             [
-                'name' => 'Admin',
+                'name' => 'Portal Admin',
                 'password' => Hash::make('admin123'),
                 'role' => 'admin',
             ]
         );
 
+        $institutions = $this->seedInstitutions();
+        $schemesByInstitution = $this->seedSchemes($institutions);
+        $students = $this->seedStudents($institutions);
+        $this->seedApplications($students, $schemesByInstitution);
+    }
+
+    private function resetPortalTables(): void
+    {
+        Schema::disableForeignKeyConstraints();
+
+        Verification::truncate();
+        Scholarship::truncate();
+        SchemeTier::truncate();
+        ScholarshipScheme::truncate();
+        Student::truncate();
+        Institution::truncate();
+        User::truncate();
+
+        Schema::enableForeignKeyConstraints();
+    }
+
+    private function seedInstitutions()
+    {
         $institutionData = [
             [
-                'user_email' => 'registrar.nit@portal.com',
-                'user_name' => 'NIT Registrar',
-                'institution_name' => 'National Institute of Technology Jaipur',
-                'state' => 'Rajasthan',
-                'city' => 'Jaipur',
-                'registration_number' => 'RJ-NIT-1001',
+                'email' => 'inst1@portal.com',
+                'name' => 'North Valley Registrar',
+                'institution_name' => 'North Valley Institute of Technology',
+                'state' => 'Punjab',
+                'city' => 'Ludhiana',
+                'address' => 'Sector 12 Academic Road, Ludhiana',
+                'registration_number' => 'INST-PB-1001',
                 'institution_type' => 'Institute',
-                'affiliated_university' => 'National Technical University',
+                'affiliated_university' => 'Punjab Technical University',
+                'contact_phone' => '9811111111',
             ],
             [
-                'user_email' => 'office.pune@portal.com',
-                'user_name' => 'Pune College Office',
-                'institution_name' => 'Pune College of Engineering',
+                'email' => 'inst2@portal.com',
+                'name' => 'Western Commerce Office',
+                'institution_name' => 'Western Commerce College',
                 'state' => 'Maharashtra',
                 'city' => 'Pune',
-                'registration_number' => 'MH-PCE-2045',
+                'address' => '18 University Circle, Pune',
+                'registration_number' => 'INST-MH-1002',
                 'institution_type' => 'College',
                 'affiliated_university' => 'Savitribai Phule Pune University',
+                'contact_phone' => '9822222222',
             ],
             [
-                'user_email' => 'admin.bangalore@portal.com',
-                'user_name' => 'Bangalore University Admin',
-                'institution_name' => 'Bangalore State University',
+                'email' => 'inst3@portal.com',
+                'name' => 'Southern State University Admin',
+                'institution_name' => 'Southern State University',
                 'state' => 'Karnataka',
                 'city' => 'Bengaluru',
-                'registration_number' => 'KA-BSU-3090',
+                'address' => '44 Knowledge Park, Bengaluru',
+                'registration_number' => 'INST-KA-1003',
                 'institution_type' => 'University',
                 'affiliated_university' => null,
+                'contact_phone' => '9833333333',
             ],
         ];
 
-        $institutions = collect($institutionData)->map(function (array $data) use ($faker) {
+        return collect($institutionData)->map(function (array $data) {
             $user = User::updateOrCreate(
-                ['email' => $data['user_email']],
+                ['email' => $data['email']],
                 [
-                    'name' => $data['user_name'],
-                    'password' => Hash::make('password123'),
+                    'name' => $data['name'],
+                    'password' => Hash::make('inst123'),
                     'role' => 'institution',
                 ]
             );
@@ -76,32 +108,134 @@ class DatabaseSeeder extends Seeder
                     'institution_name' => $data['institution_name'],
                     'state' => $data['state'],
                     'city' => $data['city'],
-                    'address' => $faker->streetAddress() . ', ' . $data['city'],
+                    'address' => $data['address'],
                     'institution_type' => $data['institution_type'],
                     'affiliated_university' => $data['affiliated_university'],
-                    'contact_email' => $data['user_email'],
-                    'contact_phone' => $faker->numerify('9#########'),
+                    'contact_email' => $data['email'],
+                    'contact_phone' => $data['contact_phone'],
                     'status' => 'approved',
                 ]
             );
         })->values();
+    }
 
-        $studentData = [
-            ['name' => 'Aarav Sharma', 'email' => 'aarav.student@portal.com', 'enrollment' => 'ENR2026001', 'home_state' => 'Punjab', 'institution' => 0, 'course' => 'B.Tech Computer Science', 'year' => '2nd'],
-            ['name' => 'Meera Iyer', 'email' => 'meera.student@portal.com', 'enrollment' => 'ENR2026002', 'home_state' => 'Kerala', 'institution' => 1, 'course' => 'B.Com', 'year' => '1st'],
-            ['name' => 'Kabir Khan', 'email' => 'kabir.student@portal.com', 'enrollment' => 'ENR2026003', 'home_state' => 'Uttar Pradesh', 'institution' => 2, 'course' => 'B.Sc Mathematics', 'year' => '3rd'],
-            ['name' => 'Ananya Das', 'email' => 'ananya.student@portal.com', 'enrollment' => 'ENR2026004', 'home_state' => 'West Bengal', 'institution' => 0, 'course' => 'BBA', 'year' => '2nd'],
-            ['name' => 'Rohan Patel', 'email' => 'rohan.student@portal.com', 'enrollment' => 'ENR2026005', 'home_state' => 'Gujarat', 'institution' => 1, 'course' => 'B.Tech Mechanical', 'year' => '4th'],
+    private function seedSchemes($institutions)
+    {
+        $schemeData = [
+            [
+                [
+                    'scheme_name' => 'Merit Excellence Grant',
+                    'description' => 'Academic merit support for students studying away from home state.',
+                    'tiers' => [
+                        ['tier_name' => 'Gold', 'criteria' => 'CGPA 9.0 and above', 'amount' => 50000, 'total_seats' => 20, 'deadline' => now()->addDays(60)->toDateString()],
+                        ['tier_name' => 'Silver', 'criteria' => 'CGPA 8.0 to 8.99', 'amount' => 35000, 'total_seats' => 30, 'deadline' => now()->addDays(60)->toDateString()],
+                        ['tier_name' => 'Bronze', 'criteria' => 'CGPA 7.0 to 7.99', 'amount' => 20000, 'total_seats' => 40, 'deadline' => now()->addDays(60)->toDateString()],
+                    ],
+                ],
+                [
+                    'scheme_name' => 'Hostel Support Scheme',
+                    'description' => 'Residential support for eligible out-of-state students.',
+                    'tiers' => [
+                        ['tier_name' => 'Full Hostel Aid', 'criteria' => 'Annual family income below 2 lakh', 'amount' => 45000, 'total_seats' => 15, 'deadline' => now()->addDays(75)->toDateString()],
+                        ['tier_name' => 'Partial Hostel Aid', 'criteria' => 'Annual family income below 4 lakh', 'amount' => 28000, 'total_seats' => 25, 'deadline' => now()->addDays(75)->toDateString()],
+                        ['tier_name' => 'Travel Add-on', 'criteria' => 'Home state over 800 km away', 'amount' => 12000, 'total_seats' => 35, 'deadline' => now()->addDays(75)->toDateString()],
+                    ],
+                ],
+            ],
+            [
+                [
+                    'scheme_name' => 'STEM Advancement Scholarship',
+                    'description' => 'Support for high-performing science and technology students.',
+                    'tiers' => [
+                        ['tier_name' => 'Research Track', 'criteria' => 'Published project or research work', 'amount' => 55000, 'total_seats' => 12, 'deadline' => now()->addDays(65)->toDateString()],
+                        ['tier_name' => 'Innovation Track', 'criteria' => 'Prototype or patent submission', 'amount' => 42000, 'total_seats' => 18, 'deadline' => now()->addDays(65)->toDateString()],
+                        ['tier_name' => 'Academic Track', 'criteria' => 'CGPA 8.0 and above', 'amount' => 25000, 'total_seats' => 30, 'deadline' => now()->addDays(65)->toDateString()],
+                    ],
+                ],
+                [
+                    'scheme_name' => 'Women in Higher Education',
+                    'description' => 'Scholarship assistance for women pursuing undergraduate and postgraduate courses.',
+                    'tiers' => [
+                        ['tier_name' => 'Leadership Tier', 'criteria' => 'Leadership role with merit record', 'amount' => 48000, 'total_seats' => 10, 'deadline' => now()->addDays(80)->toDateString()],
+                        ['tier_name' => 'Academic Tier', 'criteria' => 'CGPA 7.5 and above', 'amount' => 32000, 'total_seats' => 22, 'deadline' => now()->addDays(80)->toDateString()],
+                        ['tier_name' => 'Access Tier', 'criteria' => 'First-generation learner', 'amount' => 22000, 'total_seats' => 35, 'deadline' => now()->addDays(80)->toDateString()],
+                    ],
+                ],
+            ],
+            [
+                [
+                    'scheme_name' => 'Research Pathway Grant',
+                    'description' => 'Project funding for students entering supervised research pathways.',
+                    'tiers' => [
+                        ['tier_name' => 'Major Project', 'criteria' => 'Approved major research proposal', 'amount' => 60000, 'total_seats' => 8, 'deadline' => now()->addDays(70)->toDateString()],
+                        ['tier_name' => 'Minor Project', 'criteria' => 'Approved departmental project', 'amount' => 30000, 'total_seats' => 16, 'deadline' => now()->addDays(70)->toDateString()],
+                        ['tier_name' => 'Conference Support', 'criteria' => 'Accepted paper or presentation', 'amount' => 18000, 'total_seats' => 24, 'deadline' => now()->addDays(70)->toDateString()],
+                    ],
+                ],
+                [
+                    'scheme_name' => 'Sports Achievement Scholarship',
+                    'description' => 'Financial support for students with state or national sports achievements.',
+                    'tiers' => [
+                        ['tier_name' => 'National Medalist', 'criteria' => 'National level medal certificate', 'amount' => 52000, 'total_seats' => 10, 'deadline' => now()->addDays(90)->toDateString()],
+                        ['tier_name' => 'State Medalist', 'criteria' => 'State level medal certificate', 'amount' => 34000, 'total_seats' => 18, 'deadline' => now()->addDays(90)->toDateString()],
+                        ['tier_name' => 'Participation Tier', 'criteria' => 'Recognized state or national participation', 'amount' => 18000, 'total_seats' => 28, 'deadline' => now()->addDays(90)->toDateString()],
+                    ],
+                ],
+            ],
         ];
 
-        $students = collect($studentData)->map(function (array $data) use ($faker, $institutions) {
+        return $institutions->map(function (Institution $institution, int $institutionIndex) use ($schemeData) {
+            return collect($schemeData[$institutionIndex])->map(function (array $schemeInfo) use ($institution) {
+                $scheme = ScholarshipScheme::updateOrCreate(
+                    [
+                        'institution_id' => $institution->id,
+                        'scheme_name' => $schemeInfo['scheme_name'],
+                    ],
+                    [
+                        'description' => $schemeInfo['description'],
+                        'is_active' => true,
+                    ]
+                );
+
+                foreach ($schemeInfo['tiers'] as $tierInfo) {
+                    SchemeTier::updateOrCreate(
+                        [
+                            'scheme_id' => $scheme->id,
+                            'tier_name' => $tierInfo['tier_name'],
+                        ],
+                        [
+                            'criteria' => $tierInfo['criteria'],
+                            'amount' => $tierInfo['amount'],
+                            'total_seats' => $tierInfo['total_seats'],
+                            'filled_seats' => 0,
+                            'deadline' => $tierInfo['deadline'],
+                        ]
+                    );
+                }
+
+                return $scheme->load('tiers');
+            })->values();
+        })->values();
+    }
+
+    private function seedStudents($institutions)
+    {
+        $studentData = [
+            ['name' => 'Aarav Sharma', 'email' => 'student1@portal.com', 'enrollment' => 'ENR2026001', 'home_state' => 'Rajasthan', 'institution' => 0, 'course' => 'B.Tech Computer Science', 'year' => '2nd', 'phone' => '8711111111'],
+            ['name' => 'Meera Iyer', 'email' => 'student2@portal.com', 'enrollment' => 'ENR2026002', 'home_state' => 'Kerala', 'institution' => 0, 'course' => 'B.Tech Electronics', 'year' => '1st', 'phone' => '8722222222'],
+            ['name' => 'Kabir Khan', 'email' => 'student3@portal.com', 'enrollment' => 'ENR2026003', 'home_state' => 'Uttar Pradesh', 'institution' => 1, 'course' => 'B.Com Honors', 'year' => '3rd', 'phone' => '8733333333'],
+            ['name' => 'Ananya Das', 'email' => 'student4@portal.com', 'enrollment' => 'ENR2026004', 'home_state' => 'West Bengal', 'institution' => 2, 'course' => 'B.Sc Mathematics', 'year' => '2nd', 'phone' => '8744444444'],
+            ['name' => 'Rohan Patel', 'email' => 'student5@portal.com', 'enrollment' => 'ENR2026005', 'home_state' => 'Gujarat', 'institution' => 1, 'course' => 'BBA', 'year' => '4th', 'phone' => '8755555555'],
+        ];
+
+        return collect($studentData)->map(function (array $data) use ($institutions) {
             $institution = $institutions[$data['institution']];
 
             $user = User::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'name' => $data['name'],
-                    'password' => Hash::make('password123'),
+                    'password' => Hash::make('student123'),
                     'role' => 'student',
                 ]
             );
@@ -115,30 +249,42 @@ class DatabaseSeeder extends Seeder
                     'institution_id' => $institution->id,
                     'course' => $data['course'],
                     'year' => $data['year'],
-                    'phone' => $faker->numerify('8#########'),
+                    'phone' => $data['phone'],
                 ]
             );
         })->values();
+    }
 
+    private function seedApplications($students, $schemesByInstitution): void
+    {
         $applicationData = [
-            ['student' => 0, 'name' => 'Merit', 'amount' => 25000, 'verification' => 'verified', 'scholarship' => 'approved', 'remarks' => 'Enrollment and academic records verified.'],
-            ['student' => 1, 'name' => 'Sports', 'amount' => 18000, 'verification' => 'pending', 'scholarship' => 'pending', 'remarks' => null],
-            ['student' => 2, 'name' => 'Minority', 'amount' => 22000, 'verification' => 'rejected', 'scholarship' => 'rejected', 'remarks' => 'Enrollment details require correction.'],
+            ['student' => 0, 'scheme' => 0, 'tier' => 'Gold', 'verification' => 'verified', 'scholarship' => 'approved', 'remarks' => 'Enrollment and merit records verified.'],
+            ['student' => 1, 'scheme' => 1, 'tier' => 'Partial Hostel Aid', 'verification' => 'pending', 'scholarship' => 'pending', 'remarks' => null],
+            ['student' => 2, 'scheme' => 0, 'tier' => 'Academic Track', 'verification' => 'verified', 'scholarship' => 'verified', 'remarks' => 'Course and academic eligibility verified.'],
+            ['student' => 3, 'scheme' => 1, 'tier' => 'Participation Tier', 'verification' => 'rejected', 'scholarship' => 'rejected', 'remarks' => 'Sports certificate did not match the selected tier.'],
+            ['student' => 4, 'scheme' => 1, 'tier' => 'Academic Tier', 'verification' => 'verified', 'scholarship' => 'approved', 'remarks' => 'Student profile and documents verified.'],
         ];
 
-        foreach ($applicationData as $data) {
+        foreach ($applicationData as $index => $data) {
             $student = $students[$data['student']];
+            $institutionIndex = $student->institution_id === $students[0]->institution_id ? 0 : ($student->institution_id === $students[2]->institution_id ? 1 : 2);
+            $scheme = $schemesByInstitution[$institutionIndex][$data['scheme']]->fresh('tiers');
+            $tier = $scheme->tiers->firstWhere('tier_name', $data['tier']);
+            $documentPath = 'documents/sample-application-' . ($index + 1) . '.pdf';
+
+            Storage::disk('public')->put($documentPath, $this->sampleDocument($student->user->name, $scheme->scheme_name, $tier->tier_name));
 
             $scholarship = Scholarship::updateOrCreate(
                 [
                     'student_id' => $student->id,
-                    'scholarship_name' => $data['name'],
+                    'tier_id' => $tier->id,
                 ],
                 [
-                    'amount' => $data['amount'],
+                    'scholarship_name' => $scheme->scheme_name,
+                    'amount' => $tier->amount,
                     'status' => $data['scholarship'],
                     'remarks' => $data['remarks'],
-                    'document_path' => null,
+                    'document_path' => $documentPath,
                 ]
             );
 
@@ -152,5 +298,18 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+
+        SchemeTier::query()->get()->each(function (SchemeTier $tier) {
+            $tier->update(['filled_seats' => $tier->scholarships()->count()]);
+        });
+    }
+
+    private function sampleDocument(string $studentName, string $schemeName, string $tierName): string
+    {
+        return "Sample scholarship document\n"
+            . "Student: {$studentName}\n"
+            . "Scheme: {$schemeName}\n"
+            . "Tier: {$tierName}\n"
+            . "Generated: " . now()->toDateTimeString() . "\n";
     }
 }

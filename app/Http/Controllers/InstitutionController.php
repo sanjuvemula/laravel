@@ -12,7 +12,7 @@ class InstitutionController extends Controller {
         $institution = Auth::user()->institution;
         $verifications = $institution
             ? Verification::where('institution_id', $institution->id)
-                ->with('scholarship.student.user', 'scholarship.student.institution')
+                ->with('scholarship.tier.scheme', 'scholarship.student.user', 'scholarship.student.institution')
                 ->latest()
                 ->get()
             : collect();

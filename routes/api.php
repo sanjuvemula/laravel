@@ -6,7 +6,7 @@ use App\Models\Student;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/students/{enrollment}', function (string $enrollment) {
-    $student = Student::with('user', 'institution', 'scholarships.verification')
+    $student = Student::with('user', 'institution', 'scholarships.tier.scheme', 'scholarships.verification')
         ->where('enrollment_number', $enrollment)
         ->firstOrFail();
 
@@ -22,10 +22,12 @@ Route::get('/students/{enrollment}', function (string $enrollment) {
             'institution' => $student->institution?->institution_name,
         ],
         'scholarships' => $student->scholarships->map(fn ($scholarship) => [
-            'scholarship_name' => $scholarship->scholarship_name,
+            'scheme' => $scholarship->tier?->scheme?->scheme_name ?? $scholarship->scholarship_name,
+            'tier' => $scholarship->tier?->tier_name,
             'amount' => (float) $scholarship->amount,
-            'admin_status' => $scholarship->status,
+            'document' => $scholarship->document_path ? asset('storage/' . $scholarship->document_path) : null,
             'verification_status' => $scholarship->verification?->status ?? 'pending',
+            'admin_status' => $scholarship->status,
             'remarks' => $scholarship->verification?->remarks ?? $scholarship->remarks,
             'applied_at' => $scholarship->created_at?->toDateTimeString(),
         ]),
@@ -49,11 +51,15 @@ Route::get('/institutions', function () {
 });
 
 Route::get('/scholarships/stats', function () {
+    $counts = Scholarship::selectRaw('status, count(*) as total')
+        ->groupBy('status')
+        ->pluck('total', 'status');
+
     return response()->json([
-        'pending' => Scholarship::where('status', 'pending')->count(),
-        'verified' => Scholarship::where('status', 'verified')->count(),
-        'approved' => Scholarship::where('status', 'approved')->count(),
-        'rejected' => Scholarship::where('status', 'rejected')->count(),
+        'pending' => (int) ($counts['pending'] ?? 0),
+        'verified' => (int) ($counts['verified'] ?? 0),
+        'approved' => (int) ($counts['approved'] ?? 0),
+        'rejected' => (int) ($counts['rejected'] ?? 0),
         'total' => Scholarship::count(),
     ]);
 });

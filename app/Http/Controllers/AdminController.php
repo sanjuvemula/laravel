@@ -15,9 +15,8 @@ class AdminController extends Controller {
         $totalStudents = Student::count();
         $totalInstitutions = Institution::count();
         $totalScholarships = Scholarship::count();
-        $pendingVerifications = Verification::where('status', 'pending')->count();
-        $approvedScholarships = Scholarship::where('status', 'approved')->count();
-        $rejectedScholarships = Scholarship::where('status', 'rejected')->count();
+        $verifiedVerifications = Verification::where('status', 'verified')->count();
+        $awaitingVerifications = Verification::where('status', 'pending')->count();
         $recentApplications = Scholarship::with('student.user', 'student.institution', 'tier.scheme', 'verification')
             ->latest()
             ->take(5)
@@ -33,9 +32,8 @@ class AdminController extends Controller {
             'totalStudents',
             'totalInstitutions',
             'totalScholarships',
-            'pendingVerifications',
-            'approvedScholarships',
-            'rejectedScholarships',
+            'verifiedVerifications',
+            'awaitingVerifications',
             'recentApplications',
             'stateWiseBreakdown'
         ));
@@ -72,8 +70,18 @@ class AdminController extends Controller {
     }
 
     public function scholarships(Request $request) {
-        $scholarships = Scholarship::with('student.user', 'student.institution', 'tier.scheme', 'verification.institution')
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
+        $scholarships = Scholarship::with('student.user', 'tier.scheme', 'verification', 'student.institution')
+            ->when($request->filled('status'), function ($query) use ($request) {
+                if ($request->status === 'pending') {
+                    $query->where(function ($statusQuery) {
+                        $statusQuery->whereHas('verification', fn ($verificationQuery) => $verificationQuery->where('status', 'pending'))
+                            ->orWhereDoesntHave('verification');
+                    });
+                    return;
+                }
+
+                $query->whereHas('verification', fn ($verificationQuery) => $verificationQuery->where('status', $request->status));
+            })
             ->when($request->filled('state'), function ($query) use ($request) {
                 $query->whereHas('student', fn ($studentQuery) => $studentQuery->where('home_state', $request->state));
             })
@@ -99,28 +107,6 @@ class AdminController extends Controller {
         $schemes = ScholarshipScheme::orderBy('scheme_name')->get();
 
         return view('admin.scholarships', compact('scholarships', 'states', 'schemes'));
-    }
-
-    public function approve($id) {
-        $scholarship = Scholarship::with('verification')->findOrFail($id);
-
-        if ($scholarship->verification?->status !== 'verified') {
-            return redirect()->route('admin.scholarships')->with('error', 'Institution verification is required before approval.');
-        }
-
-        $scholarship->update(['status' => 'approved']);
-        return redirect()->route('admin.scholarships')->with('success', 'Scholarship approved!');
-    }
-
-    public function reject($id) {
-        $scholarship = Scholarship::with('verification')->findOrFail($id);
-
-        if ($scholarship->verification?->status !== 'verified') {
-            return redirect()->route('admin.scholarships')->with('error', 'Institution verification is required before rejection.');
-        }
-
-        $scholarship->update(['status' => 'rejected']);
-        return redirect()->route('admin.scholarships')->with('success', 'Scholarship rejected!');
     }
 
     public function students(Request $request) {

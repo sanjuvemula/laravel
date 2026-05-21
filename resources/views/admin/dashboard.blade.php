@@ -8,9 +8,8 @@
         ['label' => 'Total Students', 'value' => $totalStudents, 'icon' => 'fa-user-graduate', 'color' => '#4f46e5', 'note' => 'Active'],
         ['label' => 'Institutions', 'value' => $totalInstitutions, 'icon' => 'fa-building-columns', 'color' => '#7c3aed', 'note' => 'Registered'],
         ['label' => 'Scholarships', 'value' => $totalScholarships, 'icon' => 'fa-award', 'color' => '#10b981', 'note' => 'Applications'],
-        ['label' => 'Pending', 'value' => $pendingVerifications, 'icon' => 'fa-clock', 'color' => '#f59e0b', 'note' => 'Need review'],
-        ['label' => 'Approved', 'value' => $approvedScholarships, 'icon' => 'fa-circle-check', 'color' => '#06b6d4', 'note' => 'Completed'],
-        ['label' => 'Rejected', 'value' => $rejectedScholarships, 'icon' => 'fa-circle-xmark', 'color' => '#ef4444', 'note' => 'Closed'],
+        ['label' => 'Verified by Institutions', 'value' => $verifiedVerifications, 'icon' => 'fa-circle-check', 'color' => '#06b6d4', 'note' => 'Verified'],
+        ['label' => 'Awaiting Verification', 'value' => $awaitingVerifications, 'icon' => 'fa-clock', 'color' => '#f59e0b', 'note' => 'Pending'],
     ];
     $maxStateTotal = max(1, (int) $stateWiseBreakdown->max('total'));
     $badgeClass = fn ($status) => match ($status) {

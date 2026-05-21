@@ -4,13 +4,6 @@
 
 @section('content')
 @php
-    $statusClass = fn ($status) => match ($status) {
-        'approved' => 'badge-approved',
-        'verified' => 'badge-verified',
-        'rejected' => 'badge-rejected',
-        'pending' => 'badge-pending status-pending',
-        default => 'badge-secondary',
-    };
     $initials = function ($name) {
         return collect(explode(' ', trim($name ?: 'NA')))->filter()->map(fn ($part) => strtoupper(substr($part, 0, 1)))->take(2)->implode('') ?: 'NA';
     };
@@ -41,7 +34,7 @@
             <label for="status" class="form-label">Status</label>
             <select id="status" name="status" class="form-select">
                 <option value="">All statuses</option>
-                @foreach(['pending', 'verified', 'approved', 'rejected'] as $status)
+                @foreach(['pending', 'verified', 'rejected'] as $status)
                     <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
                 @endforeach
             </select>
@@ -91,9 +84,7 @@
                         <th>Tier</th>
                         <th>Amount</th>
                         <th>Document</th>
-                        <th>Verification</th>
-                        <th>Admin</th>
-                        <th style="min-width: 190px;">Action</th>
+                        <th>Verification Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -102,7 +93,6 @@
                             $student = $scholarship->student;
                             $studentName = $student?->user?->name ?? 'Not available';
                             $verificationStatus = $scholarship->verification?->status ?? 'pending';
-                            $canDecide = $verificationStatus === 'verified' && !in_array($scholarship->status, ['approved', 'rejected'], true);
                         @endphp
                         <tr>
                             <td>
@@ -127,26 +117,13 @@
                                     <span class="text-muted">Missing</span>
                                 @endif
                             </td>
-                            <td><span class="neo-pill {{ $statusClass($verificationStatus) }}">{{ $verificationStatus }}</span></td>
-                            <td><span class="neo-pill {{ $statusClass($scholarship->status) }}">{{ $scholarship->status }}</span></td>
                             <td>
-                                @if($canDecide)
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <form method="POST" action="{{ route('admin.scholarships.approve', $scholarship->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Approve this scholarship?')">
-                                                <i class="fas fa-check me-1"></i>Approve
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ route('admin.scholarships.reject', $scholarship->id) }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Reject this scholarship?')">
-                                                <i class="fas fa-xmark me-1"></i>Reject
-                                            </button>
-                                        </form>
-                                    </div>
+                                @if($verificationStatus === 'verified')
+                                    <span class="badge bg-success">Verified by Institution</span>
+                                @elseif($verificationStatus === 'rejected')
+                                    <span class="badge bg-danger">Rejected by Institution</span>
                                 @else
-                                    <span class="neo-pill badge-secondary">No action</span>
+                                    <span class="badge bg-warning text-dark">Awaiting Institution</span>
                                 @endif
                             </td>
                         </tr>

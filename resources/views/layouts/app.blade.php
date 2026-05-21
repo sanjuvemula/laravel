@@ -993,10 +993,6 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span class="nav-label">Students</span>
                 </a>
-                <a href="{{ route('admin.export.csv') }}" class="nav-link">
-                    <span class="nav-icon"><i class="fas fa-file-csv"></i></span>
-                    <span class="nav-label">Export CSV</span>
-                </a>
             @endif
         </nav>
 
@@ -1030,9 +1026,6 @@
                 <a href="{{ $profileRoute }}" class="notif-btn" aria-label="Profile">
                     <i class="fas fa-user"></i>
                 </a>
-                <button class="notif-btn" type="button" aria-label="Notifications">
-                    <i class="fas fa-bell"></i>
-                </button>
             </div>
         </header>
 

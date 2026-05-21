@@ -25,11 +25,15 @@ class StudentController extends Controller {
                 ->get()
             : collect();
 
+        $pending = $scholarships->filter(fn ($s) => $s->verification?->status === 'pending')->count();
+        $verified = $scholarships->filter(fn ($s) => $s->verification?->status === 'verified')->count();
+        $rejected = $scholarships->filter(fn ($s) => $s->verification?->status === 'rejected')->count();
+
         $stats = [
             'total' => $scholarships->count(),
-            'pending' => $scholarships->where('status', 'pending')->count() + $scholarships->where('status', 'verified')->count(),
-            'approved' => $scholarships->where('status', 'approved')->count(),
-            'rejected' => $scholarships->where('status', 'rejected')->count(),
+            'pending' => $pending,
+            'verified' => $verified,
+            'rejected' => $rejected,
         ];
 
         return view('student.dashboard', compact('user', 'student', 'scholarships', 'stats'));

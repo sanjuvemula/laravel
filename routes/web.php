@@ -55,8 +55,6 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('/institutions/{id}/approve', [AdminController::class, 'approveInstitution'])->name('institutions.approve');
         Route::post('/institutions/{id}/reject', [AdminController::class, 'rejectInstitution'])->name('institutions.reject');
         Route::get('/scholarships', [AdminController::class, 'scholarships'])->name('scholarships');
-        Route::post('/scholarships/{id}/approve', [AdminController::class, 'approve'])->name('scholarships.approve');
-        Route::post('/scholarships/{id}/reject', [AdminController::class, 'reject'])->name('scholarships.reject');
         Route::get('/students', [AdminController::class, 'students'])->name('students');
         Route::get('/export-csv', [AdminController::class, 'exportCsv'])->name('export.csv');
     });

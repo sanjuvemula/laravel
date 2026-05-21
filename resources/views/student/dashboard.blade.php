@@ -5,7 +5,6 @@
 @section('content')
 @php
     $badgeClass = fn ($status) => match ($status) {
-        'approved' => 'badge-approved',
         'verified' => 'badge-verified',
         'rejected' => 'badge-rejected',
         'pending' => 'badge-pending status-pending',
@@ -13,8 +12,8 @@
     };
     $cards = [
         ['label' => 'Applications', 'value' => $stats['total'] ?? 0, 'icon' => 'fa-folder-open', 'color' => '#4f46e5'],
-        ['label' => 'In Review', 'value' => $stats['pending'] ?? 0, 'icon' => 'fa-clock', 'color' => '#f59e0b'],
-        ['label' => 'Approved', 'value' => $stats['approved'] ?? 0, 'icon' => 'fa-circle-check', 'color' => '#06b6d4'],
+        ['label' => 'Pending', 'value' => $stats['pending'] ?? 0, 'icon' => 'fa-clock', 'color' => '#f59e0b'],
+        ['label' => 'Verified', 'value' => $stats['verified'] ?? 0, 'icon' => 'fa-circle-check', 'color' => '#06b6d4'],
         ['label' => 'Rejected', 'value' => $stats['rejected'] ?? 0, 'icon' => 'fa-circle-xmark', 'color' => '#ef4444'],
     ];
 @endphp
@@ -89,7 +88,6 @@
                             <th>Amount</th>
                             <th>Document</th>
                             <th>Institution</th>
-                            <th>Admin</th>
                             <th style="min-width: 440px;">Progress</th>
                         </tr>
                     </thead>
@@ -97,16 +95,10 @@
                         @foreach($scholarships as $scholarship)
                             @php
                                 $verificationStatus = $scholarship->verification?->status ?? 'pending';
-                                $adminStatus = in_array($scholarship->status, ['approved', 'rejected'], true) ? $scholarship->status : 'pending';
                                 $institutionStep = match ($verificationStatus) {
                                     'verified' => 'completed',
                                     'rejected' => 'rejected',
                                     default => 'active',
-                                };
-                                $adminStep = match ($scholarship->status) {
-                                    'approved' => 'completed',
-                                    'rejected' => 'rejected',
-                                    default => $verificationStatus === 'verified' ? 'active' : '',
                                 };
                             @endphp
                             <tr>
@@ -125,7 +117,6 @@
                                     @endif
                                 </td>
                                 <td><span class="badge {{ $badgeClass($verificationStatus) }}">{{ $verificationStatus }}</span></td>
-                                <td><span class="badge {{ $badgeClass($adminStatus) }}">{{ $adminStatus }}</span></td>
                                 <td>
                                     <div class="stepper">
                                         <div class="step completed">
@@ -134,13 +125,16 @@
                                         </div>
                                         <div class="step-line"></div>
                                         <div class="step {{ $institutionStep }}">
-                                            <div class="step-circle">2</div>
+                                            <div class="step-circle">
+                                                @if($verificationStatus === 'verified')
+                                                    <i class="fas fa-check"></i>
+                                                @elseif($verificationStatus === 'rejected')
+                                                    <i class="fas fa-xmark"></i>
+                                                @else
+                                                    2
+                                                @endif
+                                            </div>
                                             <span>Institution</span>
-                                        </div>
-                                        <div class="step-line"></div>
-                                        <div class="step {{ $adminStep }}">
-                                            <div class="step-circle">3</div>
-                                            <span>Admin</span>
                                         </div>
                                     </div>
                                 </td>
